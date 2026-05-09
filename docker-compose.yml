@@ -1,0 +1,61 @@
+version: '3.8'
+
+services:
+
+  db:
+    image: mysql:8.0
+    container_name: gamemerchstore-db
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_DATABASE: gamemerchstore
+    ports:
+      - "3307:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "--password=${MYSQL_ROOT_PASSWORD}"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
+
+  backend:
+    build:
+      context: ./backend
+    container_name: gamemerchstore-backend
+    restart: unless-stopped
+    ports:
+      - "3001:3001"
+    environment:
+      PORT: 3001
+      DATABASE_HOST: db
+      DATABASE_USER: root
+      DATABASE_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      DATABASE_NAME: gamemerchstore
+      DATABASE_DIALECT: mysql
+      TOKEN_SECRET: ${TOKEN_SECRET}
+      CORS_ORIGIN: ${CORS_ORIGIN}
+      STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY}
+    depends_on:
+      db:
+        condition: service_healthy
+
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        REACT_APP_API_URL: ${REACT_APP_API_URL}
+        REACT_APP_EMAILJS_SERVICE_ID: ${REACT_APP_EMAILJS_SERVICE_ID}
+        REACT_APP_EMAILJS_TEMPLATE_ID: ${REACT_APP_EMAILJS_TEMPLATE_ID}
+        REACT_APP_EMAILJS_PUBLIC_KEY: ${REACT_APP_EMAILJS_PUBLIC_KEY}
+        REACT_APP_STRIPE_PUBLISHABLE_KEY: ${REACT_APP_STRIPE_PUBLISHABLE_KEY}
+    container_name: gamemerchstore-frontend
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    depends_on:
+      - backend
+
+volumes:
+  mysql_data:
